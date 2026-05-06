@@ -52,6 +52,58 @@ Notes:
 
 Milestone 0 status: complete for local test/build readiness. Next milestone should start a Quest-specific product flavor/manifest without changing the streaming core.
 
+### 2026-05-06 - Milestone 1 Started
+
+Goal: run the current app on Quest as a Horizon OS panel and validate the existing stream path without changing the streaming core.
+
+Completed local implementation:
+
+- [x] Added a `quest` product flavor in `app/build.gradle`.
+- [x] Set Quest application ID to `dev.moonlightvr.quest`.
+- [x] Kept Quest on the non-root native build path with `PRODUCT_FLAVOR=nonRoot`.
+- [x] Added `BuildConfig.QUEST_BUILD` so code can gate Quest-only UI/defaults.
+- [x] Added `app/src/quest/AndroidManifest.xml`.
+- [x] Removed TV EPG permissions from the Quest merged manifest.
+- [x] Removed Quest launch exposure through Leanback/OUYA categories by replacing the `PcView` launcher activity in the Quest manifest overlay.
+- [x] Added Horizon panel default sizes for `PcView`, `AppView`, `StreamSettings`, `Game`, and `DebugInfoActivity`.
+- [x] Added Quest streaming presets:
+  - Balanced: 1080p, 90 FPS, 45 Mbps, auto codec, latency pacing.
+  - Quality: 1440p, 90 FPS, 70 Mbps, auto codec, balanced pacing.
+  - Low latency: 1080p, 120 FPS, 35 Mbps, auto codec, latency pacing, low-delay frame balance.
+  - Desktop clarity: 1440p, 60 FPS, 50 Mbps, auto codec, balanced pacing.
+- [x] Added a Quest-only settings category that is hidden from non-Quest builds.
+- [x] Extended `DebugInfoActivity` into the first Quest diagnostics surface with OS/build, ABI, network, Wi-Fi, decoder, and gamepad details.
+- [x] Added unit coverage for Quest preset selection/application.
+- [x] Added `docs/quest-panel-build.md`.
+- [x] Updated `.gitignore` for repo-local Android SDK/toolchain setup artifacts.
+
+Verification:
+
+- `gradlew test` passed on 2026-05-06.
+- `gradlew assembleQuestDebug` passed on 2026-05-06.
+- Combined verification `gradlew test assembleQuestDebug` passed on 2026-05-06.
+- Quest merged manifest check confirmed:
+  - package is `dev.moonlightvr.quest.noirdebug` for debug builds.
+  - Quest panel `<layout>` entries are present.
+  - `READ_EPG_DATA`, `WRITE_EPG_DATA`, `android.software.leanback`, `LEANBACK_LAUNCHER`, and `tv.ouya.intent.category.APP` are absent.
+- Generated Quest debug APKs:
+  - `app/build/outputs/apk/quest/debug/app-quest-arm64-v8a-debug.apk`
+  - `app/build/outputs/apk/quest/debug/app-quest-armeabi-v7a-debug.apk`
+  - `app/build/outputs/apk/quest/debug/app-quest-x86-debug.apk`
+  - `app/build/outputs/apk/quest/debug/app-quest-x86_64-debug.apk`
+
+Local environment repair during verification:
+
+- The repo-local SDK/NDK install had malformed package folders from prior setup:
+  - missing `source.properties` in the NDK.
+  - missing `android.jar` in the canonical `platforms/android-36` folder.
+  - missing build-tools binaries in the canonical `build-tools/35.0.0` folder.
+  - missing `ndk-build.cmd`.
+- Gradle was allowed to install complete repo-local SDK/NDK packages after SDK license hashes were added locally.
+- Broken package folders were moved aside under `.android-sdk`; these are ignored by Git.
+
+Milestone 1 status: local implementation/build slice complete. Remaining acceptance work requires headset hardware: sideload the `arm64-v8a` APK on Quest, pair with Sunshine/Apollo, test 1080p/60, 1080p/90, and 1440p/90 where supported, verify physical gamepad streaming input, and verify Touch controller panel usability.
+
 ## Executive Summary
 
 This project is feasible, and the fork is a strong starting point for the streaming, host discovery, codec negotiation, input forwarding, and performance overlay layers. The main work is not the streaming core. The main work is replacing a phone/tablet/TV Android UX with a Quest-native interaction model and deciding how deeply to integrate with Horizon OS.
@@ -75,9 +127,9 @@ Do not rewrite the streaming protocol or Moonlight core first. First, separate t
 The repo is a single-module Android app:
 
 - Gradle/Android: `com.android.application`, AGP `8.13.0`, Gradle wrapper `8.13`, `compileSdk 36`, `targetSdk 34`, `minSdk 21`, Java 11, NDK `27.0.12077973`.
-- Product flavors today are `root` and `nonRoot_game`, both under the `root` dimension. Quest should use a non-root path.
+- Product flavors today are `root`, `nonRoot_game`, and `quest`, all under the `root` dimension. Quest uses the non-root native path and application ID `dev.moonlightvr.quest`.
 - Native code is built with `ndkBuild` from `app/src/main/jni/Android.mk`.
-- The `moonlight-common-c` submodule path is configured in `.gitmodules`, but the working tree currently has an empty `app/src/main/jni/moonlight-core/moonlight-common-c` directory. A fresh build will need submodules initialized.
+- The `moonlight-common-c` submodule path is configured in `.gitmodules` and was restored locally during Milestone 0. A fresh checkout still needs submodules initialized before native builds.
 - License is GPLv3 per `LICENSE.txt`. Any distributed fork must respect source distribution obligations and should use its own package name/application ID.
 
 Important local files:
@@ -107,9 +159,7 @@ The app already supports:
 
 The app does not currently have:
 
-- Quest/Horizon product flavor.
 - Meta Spatial SDK or OpenXR integration.
-- Quest-specific manifest/panel defaults.
 - VR compositor layer rendering.
 - Quest controller/hand tracking mapping for gameplay in immersive mode.
 - A clean separation between streaming session, render target, and Android activity UI.
