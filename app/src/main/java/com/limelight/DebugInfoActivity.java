@@ -4,6 +4,11 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.hardware.Sensor;
 import android.media.AudioAttributes;
 import android.os.Build;
@@ -23,6 +28,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.limelight.utils.DeviceUtils;
+import com.limelight.binding.video.MediaCodecHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,6 +62,11 @@ public class DebugInfoActivity extends AppCompatActivity implements View.OnClick
         sb.append("\t" + getString(R.string.debug_info_api_version) + Build.VERSION.SDK_INT);
         sb.append("\n" + getString(R.string.debug_info_kernel_version) + kernelVersion);
         sb.append("\n" + getString(R.string.debug_info_brand_model) + DeviceUtils.getManufacturer() + "\t-\t" + DeviceUtils.getModel());
+        sb.append("\nBuild: " + Build.DISPLAY);
+        sb.append("\nFingerprint: " + Build.FINGERPRINT);
+        sb.append("\nABIs: " + String.join(", ", DeviceUtils.getABIs()));
+        sb.append("\n\nNetwork\n" + getNetworkDiagnostics());
+        sb.append("\n\nDecoders\n" + getDecoderDiagnostics());
         tx_content.setText(sb.toString());
 
         boolean hasVibrator = ((Vibrator) getSystemService(Context.VIBRATOR_SERVICE)).hasVibrator();
@@ -63,6 +74,60 @@ public class DebugInfoActivity extends AppCompatActivity implements View.OnClick
         bt_vibrator.setText(getString(R.string.debug_info_test_device_vibration, content));
 
         showSimlateAmp();
+    }
+
+    private String getNetworkDiagnostics() {
+        StringBuilder sb = new StringBuilder();
+        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Network activeNetwork = connectivityManager.getActiveNetwork();
+            NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(activeNetwork);
+            if (capabilities != null) {
+                sb.append("Transport: ");
+                if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                    sb.append("Wi-Fi");
+                } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                    sb.append("Ethernet");
+                } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                    sb.append("Cellular");
+                } else {
+                    sb.append("Unknown");
+                }
+                sb.append("\nDownstream estimate: ").append(capabilities.getLinkDownstreamBandwidthKbps()).append(" Kbps");
+                sb.append("\nUpstream estimate: ").append(capabilities.getLinkUpstreamBandwidthKbps()).append(" Kbps");
+            } else {
+                sb.append("No active network capabilities");
+            }
+        } else {
+            sb.append("Connectivity details unavailable");
+        }
+
+        try {
+            WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wifiManager != null) {
+                WifiInfo info = wifiManager.getConnectionInfo();
+                if (info != null) {
+                    sb.append("\nWi-Fi SSID: ").append(info.getSSID());
+                    sb.append("\nWi-Fi RSSI: ").append(info.getRssi()).append(" dBm");
+                    sb.append("\nWi-Fi link speed: ").append(info.getLinkSpeed()).append(" Mbps");
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        sb.append("\nWi-Fi frequency: ").append(info.getFrequency()).append(" MHz");
+                    }
+                }
+            }
+        } catch (RuntimeException e) {
+            sb.append("\nWi-Fi details unavailable: ").append(e.getClass().getSimpleName());
+        }
+
+        return sb.toString();
+    }
+
+    private String getDecoderDiagnostics() {
+        try {
+            return MediaCodecHelper.dumpDecoders();
+        } catch (Exception e) {
+            return "Decoder list unavailable: " + e.getClass().getSimpleName() + ": " + e.getMessage();
+        }
     }
 
     private void showSimlateAmp() {

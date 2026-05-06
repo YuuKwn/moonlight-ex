@@ -5,6 +5,26 @@
     app:iconSpaceReserved="false">
 
     <PreferenceCategory
+        android:key="category_quest_settings"
+        android:title="@string/category_quest_settings"
+        app:initialExpandedChildrenCount="2"
+        app:iconSpaceReserved="false">
+        <ListPreference
+            android:defaultValue="balanced"
+            android:entries="@array/quest_streaming_preset_names"
+            android:entryValues="@array/quest_streaming_preset_values"
+            android:key="list_quest_streaming_preset"
+            android:summary="@string/summary_quest_streaming_preset"
+            android:title="@string/title_quest_streaming_preset"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="pref_quest_diagnostics"
+            android:summary="@string/summary_quest_diagnostics"
+            android:title="@string/title_quest_diagnostics"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
         android:key="category_video_settings"
         android:title="@string/category_video_settings"
         app:initialExpandedChildrenCount="3"

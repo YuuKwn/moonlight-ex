@@ -136,6 +136,19 @@
         <item>smoothness</item>
     </string-array>
 
+    <string-array name="quest_streaming_preset_names">
+        <item>@string/quest_preset_balanced</item>
+        <item>@string/quest_preset_quality</item>
+        <item>@string/quest_preset_low_latency</item>
+        <item>@string/quest_preset_desktop_clarity</item>
+    </string-array>
+    <string-array name="quest_streaming_preset_values" translatable="false">
+        <item>balanced</item>
+        <item>quality</item>
+        <item>low_latency</item>
+        <item>desktop_clarity</item>
+    </string-array>
+
     <string-array name="analog_scrolling_names">
         <item>@string/analogscroll_none</item>
         <item>@string/analogscroll_right</item>

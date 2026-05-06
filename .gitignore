@@ -48,6 +48,11 @@ app/.externalNativeBuild/
 # agent files
 AGENTS.md
 
-# Repo-local Android toolchain/cache used by Codex setup
+# Repo-local Android toolchain/cache used by local/Codex setup
 .android-sdk/
+.android-sdk*/
 .android/
+.android*/
+android-sdk/
+cmdline-tools*.zip
+commandlinetools-*.zip

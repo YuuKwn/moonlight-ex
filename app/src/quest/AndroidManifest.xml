@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission
+        android:name="com.android.providers.tv.permission.READ_EPG_DATA"
+        tools:node="remove" />
+    <uses-permission
+        android:name="com.android.providers.tv.permission.WRITE_EPG_DATA"
+        tools:node="remove" />
+
+    <uses-feature
+        android:name="android.software.leanback"
+        tools:node="remove" />
+
+    <application
+        android:banner="@null"
+        tools:replace="android:banner">
+
+        <activity
+            android:name=".PcView"
+            android:exported="true"
+            android:resizeableActivity="true"
+            android:enableOnBackInvokedCallback="true"
+            android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection"
+            tools:node="replace">
+            <layout
+                android:defaultWidth="1280dp"
+                android:defaultHeight="720dp"
+                android:minWidth="960dp"
+                android:minHeight="540dp"
+                android:gravity="center" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".AppView">
+            <layout
+                android:defaultWidth="1280dp"
+                android:defaultHeight="720dp"
+                android:minWidth="960dp"
+                android:minHeight="540dp"
+                android:gravity="center" />
+        </activity>
+
+        <activity android:name=".preferences.StreamSettings">
+            <layout
+                android:defaultWidth="1180dp"
+                android:defaultHeight="760dp"
+                android:minWidth="960dp"
+                android:minHeight="620dp"
+                android:gravity="center" />
+        </activity>
+
+        <activity android:name=".Game">
+            <layout
+                android:defaultWidth="1440dp"
+                android:defaultHeight="810dp"
+                android:minWidth="960dp"
+                android:minHeight="540dp"
+                android:gravity="center" />
+        </activity>
+
+        <activity android:name=".DebugInfoActivity">
+            <layout
+                android:defaultWidth="1180dp"
+                android:defaultHeight="760dp"
+                android:minWidth="960dp"
+                android:minHeight="620dp"
+                android:gravity="center" />
+        </activity>
+
+    </application>
+</manifest>

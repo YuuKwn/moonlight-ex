@@ -43,6 +43,7 @@ android {
             applicationId "com.limelight.root"
             dimension "root"
             buildConfigField "boolean", "ROOT_BUILD", "true"
+            buildConfigField "boolean", "QUEST_BUILD", "false"
         }
 
         nonRoot_game {
@@ -59,6 +60,24 @@ android {
             applicationId "com.limelight"
             dimension "root"
             buildConfigField "boolean", "ROOT_BUILD", "false"
+            buildConfigField "boolean", "QUEST_BUILD", "false"
+        }
+
+        quest {
+            externalNativeBuild {
+                ndkBuild {
+                    arguments "PRODUCT_FLAVOR=nonRoot"
+                }
+            }
+
+            resValue "string",
+                    "obtainium_app_url",
+                    "data:text/html;base64,PGgxPk1vb25saWdodCBWUiBRdWVzdCBidWlsZDwvaDE+"
+
+            applicationId "dev.moonlightvr.quest"
+            dimension "root"
+            buildConfigField "boolean", "ROOT_BUILD", "false"
+            buildConfigField "boolean", "QUEST_BUILD", "true"
         }
     }
 

@@ -185,6 +185,16 @@
     <!-- Preferences -->
     <string name="category_general_settings">General Settings</string>
     <string name="category_video_settings">Video Settings</string>
+    <string name="category_quest_settings">Quest Settings</string>
+    <string name="title_quest_streaming_preset">Quest streaming preset</string>
+    <string name="summary_quest_streaming_preset">Applies headset-oriented resolution, frame rate, bitrate, codec, and frame pacing defaults.</string>
+    <string name="quest_preset_balanced">Balanced: 1080p, 90 FPS</string>
+    <string name="quest_preset_quality">Quality: 1440p, 90 FPS</string>
+    <string name="quest_preset_low_latency">Low latency: 1080p, 120 FPS</string>
+    <string name="quest_preset_desktop_clarity">Desktop clarity: 1440p, 60 FPS</string>
+    <string name="quest_preset_applied">Quest preset applied: %s</string>
+    <string name="title_quest_diagnostics">Quest Diagnostics</string>
+    <string name="summary_quest_diagnostics">Review headset build, network, decoder, and gamepad details.</string>
     <string name="title_resolution_list">Video resolution</string>
     <string name="summary_resolution_list">Increase to improve image clarity. Decrease for better performance on lower end devices and slower networks.</string>
     <string name="title_native_res_dialog">Native Resolution Warning</string>

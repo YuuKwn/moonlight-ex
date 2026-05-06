@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.view.Display;
 
+import com.limelight.BuildConfig;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.profiles.ProfilesManager;
 
@@ -61,7 +62,7 @@ public class PreferenceConfiguration {
     private static final String MULTI_CONTROLLER_PREF_STRING = "checkbox_multi_controller";
     static final String AUDIO_CONFIG_PREF_STRING = "list_audio_config";
     private static final String USB_DRIVER_PREF_SRING = "checkbox_usb_driver";
-    private static final String VIDEO_FORMAT_PREF_STRING = "video_format";
+    static final String VIDEO_FORMAT_PREF_STRING = "video_format";
     private static final String ONSCREEN_CONTROLLER_PREF_STRING = "checkbox_show_onscreen_controls";
     private static final String CHECKBOX_HIDE_OSC_WHEN_HAS_GAMEPAD = "checkbox_hide_osc_when_has_gamepad";
     private static final String ONLY_L3_R3_PREF_STRING = "checkbox_only_show_L3R3";
@@ -83,8 +84,8 @@ public class PreferenceConfiguration {
     private static final String FLIP_FACE_BUTTONS_PREF_STRING = "checkbox_flip_face_buttons";
 //    static final String TOUCHSCREEN_TRACKPAD_PREF_STRING = "checkbox_touchscreen_trackpad";
     private static final String LATENCY_TOAST_PREF_STRING = "checkbox_enable_post_stream_toast";
-    private static final String FRAME_PACING_PREF_STRING = "frame_pacing";
-    private static final String LOW_LATENCY_FRAME_BALANCE_PREF_STRING = "pref_low_latency_frame_balance";
+    static final String FRAME_PACING_PREF_STRING = "frame_pacing";
+    static final String LOW_LATENCY_FRAME_BALANCE_PREF_STRING = "pref_low_latency_frame_balance";
     private static final String ABSOLUTE_MOUSE_MODE_PREF_STRING = "checkbox_absolute_mouse_mode";
     private static final String ENABLE_AUDIO_FX_PREF_STRING = "checkbox_enable_audiofx";
     private static final String REDUCE_REFRESH_RATE_PREF_STRING = "checkbox_reduce_refresh_rate";
@@ -140,6 +141,8 @@ public class PreferenceConfiguration {
 
     static final String DEFAULT_RESOLUTION = "1280x720";
     static final String DEFAULT_FPS = "60";
+    static final String DEFAULT_QUEST_RESOLUTION = "1920x1080";
+    static final String DEFAULT_QUEST_FPS = "90";
     private static final boolean DEFAULT_ENABLE_ULTRA_LOW_LATENCY = false;
     private static final boolean DEFAULT_ENFORCE_DISPLAY_MODE = false;
     private static final boolean DEFAULT_USE_VIRTUAL_DISPLAY = false;
@@ -578,8 +581,16 @@ public class PreferenceConfiguration {
     public static int getDefaultBitrate(Context context) {
         SharedPreferences prefs = ProfilesManager.getInstance().getOverlayingSharedPreferences(context);
         return getDefaultBitrate(
-                prefs.getString(RESOLUTION_PREF_STRING, DEFAULT_RESOLUTION),
-                prefs.getString(FPS_PREF_STRING, DEFAULT_FPS));
+                prefs.getString(RESOLUTION_PREF_STRING, getDefaultResolution()),
+                prefs.getString(FPS_PREF_STRING, getDefaultFps()));
+    }
+
+    static String getDefaultResolution() {
+        return BuildConfig.QUEST_BUILD ? DEFAULT_QUEST_RESOLUTION : DEFAULT_RESOLUTION;
+    }
+
+    static String getDefaultFps() {
+        return BuildConfig.QUEST_BUILD ? DEFAULT_QUEST_FPS : DEFAULT_FPS;
     }
 
     private static FormatOption getVideoFormatValue(Context context) {
@@ -786,7 +797,7 @@ private static int getFramePacingValue(Context context) {
         }
         else {
             // Use the new preference location
-            String resStr = prefs.getString(RESOLUTION_PREF_STRING, PreferenceConfiguration.DEFAULT_RESOLUTION);
+            String resStr = prefs.getString(RESOLUTION_PREF_STRING, PreferenceConfiguration.getDefaultResolution());
 
             // Convert legacy resolution strings to the new style
             if (!resStr.contains("x")) {
@@ -796,7 +807,7 @@ private static int getFramePacingValue(Context context) {
 
             config.width = PreferenceConfiguration.getWidthFromResolutionString(resStr);
             config.height = PreferenceConfiguration.getHeightFromResolutionString(resStr);
-            config.fps = Float.parseFloat(prefs.getString(FPS_PREF_STRING, PreferenceConfiguration.DEFAULT_FPS));
+            config.fps = Float.parseFloat(prefs.getString(FPS_PREF_STRING, PreferenceConfiguration.getDefaultFps()));
         }
 
         if (prefs.contains(LEGACY_STRETCH_PREF_STRING)) {

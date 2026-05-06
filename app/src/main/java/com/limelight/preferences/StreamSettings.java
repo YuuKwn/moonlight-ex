@@ -339,6 +339,37 @@ public class StreamSettings extends AppCompatActivity {
             AppCompatActivity activity = (AppCompatActivity) requireActivity();
             PackageManager pm = activity.getPackageManager();
 
+            PreferenceCategory questCategory = findPreference("category_quest_settings");
+            if (!BuildConfig.QUEST_BUILD) {
+                if (questCategory != null) {
+                    screen.removePreference(questCategory);
+                }
+            }
+            else {
+                ListPreference questPreset = findPreference(QuestStreamingPreset.PREF_KEY);
+                if (questPreset != null) {
+                    questPreset.setOnPreferenceChangeListener((preference, newValue) -> {
+                        String presetId = String.valueOf(newValue);
+                        QuestStreamingPreset.apply(getPrefs(), presetId);
+                        int entryIndex = questPreset.findIndexOfValue(presetId);
+                        CharSequence presetName = entryIndex >= 0 ? questPreset.getEntries()[entryIndex] : presetId;
+                        Toast.makeText(getActivity(),
+                                getString(R.string.quest_preset_applied, presetName),
+                                Toast.LENGTH_SHORT).show();
+                        reloadSettings();
+                        return true;
+                    });
+                }
+
+                Preference diagnostics = findPreference("pref_quest_diagnostics");
+                if (diagnostics != null) {
+                    diagnostics.setOnPreferenceClickListener(preference -> {
+                        startActivity(new Intent(requireActivity(), DebugInfoActivity.class));
+                        return true;
+                    });
+                }
+            }
+
             // hide on-screen controls category on non touch screen devices
             if (!pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
                 PreferenceCategory category = findPreference("category_onscreen_controls");
