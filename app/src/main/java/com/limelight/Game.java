@@ -9,7 +9,6 @@ import static com.limelight.utils.ServerHelper.getActiveDisplay;
 import static com.limelight.utils.ServerHelper.getSecondaryDisplay;
 
 import com.limelight.binding.PlatformBinding;
-import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardTranslator;
@@ -43,6 +42,12 @@ import com.limelight.profiles.ProfilesManager;
 import com.limelight.ui.ExternalControllerView;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.StreamContainer;
+import com.limelight.streaming.AndroidSurfaceVideoSink;
+import com.limelight.streaming.HostInputMapper;
+import com.limelight.streaming.StreamConfigurationFactory;
+import com.limelight.streaming.StreamLaunchParams;
+import com.limelight.streaming.StreamingSession;
+import com.limelight.streaming.VideoSink;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.ExternalDisplayControlActivity;
 import com.limelight.utils.MouseModeOption;
@@ -119,10 +124,8 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.ArrayDeque;
 
-import java.io.ByteArrayInputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -207,6 +210,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private boolean waitingForAllModifiersUp = false;
     private int specialKeyCode = KeyEvent.KEYCODE_UNKNOWN;
     private StreamContainer streamContainer;
+    private VideoSink videoSink;
+    private StreamingSession streamingSession;
+    private HostInputMapper hostInputMapper;
     private long synthTouchDownTime = 0;
 
     private boolean pendingDrag = false;
@@ -285,6 +291,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private boolean clipboardSyncRunning = false;
 
     private NvHTTP httpConn;
+    private StreamLaunchParams launchParams;
 
     public interface GameMenuCallbacks {
         void showMenu(GameInputDevice devic);
@@ -384,9 +391,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 getResources().getString(R.string.conn_establishing_msg), true);
 
 
+        launchParams = StreamLaunchParams.fromIntent(getIntent());
+
         Display currentDisplay = null;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            int displayId = getIntent().getIntExtra(EXTRA_DISPLAY_ID, Display.DEFAULT_DISPLAY);
+            int displayId = launchParams.getDisplayId();
             currentDisplay = getSystemService(DisplayManager.class).getDisplay(displayId);
         }
 
@@ -561,34 +570,21 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             e.printStackTrace();
         }
 
-        appName = Game.this.getIntent().getStringExtra(EXTRA_APP_NAME);
-        pcName = Game.this.getIntent().getStringExtra(EXTRA_PC_NAME);
+        appName = launchParams.getAppName();
+        pcName = launchParams.getPcName();
+        host = launchParams.getHost();
+        port = launchParams.getPort();
+        httpsPort = launchParams.getHttpsPort();
+        appUUID = launchParams.getAppUuid();
+        appId = launchParams.getAppId();
+        uniqueId = launchParams.getUniqueId();
+        vDisplay = launchParams.isVirtualDisplay();
+        serverCommands = launchParams.getServerCommands();
+        serverCert = launchParams.getServerCert();
+        app = launchParams.createApp();
+        httpConn = launchParams.createHttpConnection(this);
 
-        host = Game.this.getIntent().getStringExtra(EXTRA_HOST);
-        port = Game.this.getIntent().getIntExtra(EXTRA_PORT, NvHTTP.DEFAULT_HTTP_PORT);
-        httpsPort = Game.this.getIntent().getIntExtra(EXTRA_HTTPS_PORT, 0); // 0 is treated as unknown
-        appUUID = Game.this.getIntent().getStringExtra(EXTRA_APP_UUID);
-        appId = Game.this.getIntent().getIntExtra(EXTRA_APP_ID, StreamConfiguration.INVALID_APP_ID);
-        uniqueId = Game.this.getIntent().getStringExtra(EXTRA_UNIQUEID);
-        vDisplay = Game.this.getIntent().getBooleanExtra(EXTRA_VDISPLAY, false);
-        serverCommands = Game.this.getIntent().getStringArrayListExtra(EXTRA_SERVER_COMMANDS);
-        boolean appSupportsHdr = Game.this.getIntent().getBooleanExtra(EXTRA_APP_HDR, false);
-        byte[] derCertData = Game.this.getIntent().getByteArrayExtra(EXTRA_SERVER_CERT);
-
-        app = new NvApp(appName != null ? appName : "app", appUUID, appId, appSupportsHdr);
-
-        try {
-            if (derCertData != null) {
-                serverCert = (X509Certificate) CertificateFactory.getInstance("X.509")
-                        .generateCertificate(new ByteArrayInputStream(derCertData));
-
-                httpConn = new NvHTTP(new ComputerDetails.AddressTuple(host, port), httpsPort, uniqueId, serverCert, PlatformBinding.getCryptoProvider(this));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        if (appId == StreamConfiguration.INVALID_APP_ID) {
+        if (!launchParams.isValid()) {
             finish();
             return;
         }
@@ -750,64 +746,30 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         float displayRefreshRate = prepareDisplayForRendering(currentDisplay);
         LimeLog.info("Display refresh rate: "+displayRefreshRate);
 
-        // If the user requested frame pacing using a capped FPS, we will need to change our
-        // desired FPS setting here in accordance with the active display refresh rate.
-        int roundedRefreshRate = Math.round(displayRefreshRate);
-        float chosenFrameRate = prefConfig.fps;
-        if (prefConfig.framePacing == PreferenceConfiguration.FRAME_PACING_CAP_FPS) {
-            if (prefConfig.fps >= roundedRefreshRate) {
-                if (prefConfig.fps > roundedRefreshRate + 3) {
-                    // Use frame drops when rendering above the screen frame rate
-                    prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
-                    LimeLog.info("Using drop mode for FPS > Hz");
-                } else if (roundedRefreshRate <= 49) {
-                    // Let's avoid clearly bogus refresh rates and fall back to legacy rendering
-                    prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
-                    LimeLog.info("Bogus refresh rate: " + roundedRefreshRate);
-                }
-                else {
-                    chosenFrameRate = roundedRefreshRate - 1;
-                    LimeLog.info("Adjusting FPS target for screen to " + chosenFrameRate);
-                }
-            }
-        }
-
-        if (prefConfig.framePacingWarpFactor > 0) {
-            chosenFrameRate *= prefConfig.framePacingWarpFactor;
-        }
-
-        StreamConfiguration config = new StreamConfiguration.Builder()
-                .setResolution(
-                        displayWidth,
-                        displayHeight
-                )
-                .setLaunchRefreshRate(prefConfig.fps)
-                .setRefreshRate(chosenFrameRate)
-                .setVirtualDisplay(vDisplay)
-                .setResolutionScaleFactor(prefConfig.resolutionScaleFactor)
-                .setApp(app)
-                .setEnableUltraLowLatency(prefConfig.enableUltraLowLatency)
-                .setBitrate(isMetered ? prefConfig.meteredBitrate: prefConfig.bitrate)
-                .setEnableSops(prefConfig.enableSops)
-                .enableLocalAudioPlayback(prefConfig.playHostAudio)
-                .setMaxPacketSize(1392)
-                .setRemoteConfiguration(StreamConfiguration.STREAM_CFG_AUTO) // NvConnection will perform LAN and VPN detection
-                .setSupportedVideoFormats(supportedVideoFormats)
-                .setAttachedGamepadMask(gamepadMask)
-                .setClientRefreshRateX100((int)(displayRefreshRate * 100))
-                .setAudioConfiguration(prefConfig.audioConfiguration)
-                .setColorSpace(decoderRenderer.getPreferredColorSpace())
-                .setColorRange(decoderRenderer.getPreferredColorRange())
-                .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
-                .build();
+        StreamConfigurationFactory configFactory = new StreamConfigurationFactory();
+        StreamConfiguration config = configFactory.create(new StreamConfigurationFactory.Request(
+                launchParams,
+                prefConfig,
+                decoderRenderer,
+                displayWidth,
+                displayHeight,
+                displayRefreshRate,
+                isMetered,
+                supportedVideoFormats,
+                gamepadMask
+        ));
 
         // Initialize the connection
         conn = new NvConnection(getApplicationContext(),
                 new ComputerDetails.AddressTuple(host, port),
                 httpsPort, uniqueId, config,
                 PlatformBinding.getCryptoProvider(this), serverCert);
+        streamingSession = new StreamingSession(this, prefConfig, conn, decoderRenderer);
         controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
         keyboardTranslator = new KeyboardTranslator(prefConfig);
+        hostInputMapper = new HostInputMapper(conn, keyboardTranslator,
+                this::handleSpecialKeys,
+                this::getModifierState);
 
         InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
         inputManager.registerInputDeviceListener(keyboardTranslator, null);
@@ -864,17 +826,24 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         // The connection will be started when the surface gets created
         //streamContainer.getHolder().addCallback(this);
 
-        streamContainer.setOnSurfaceAvailable(() -> {
+        videoSink = new AndroidSurfaceVideoSink(streamContainer, displayWidth, displayHeight, desiredRefreshRate);
+        videoSink.setCallback(new VideoSink.Callback() {
+            @Override
+            public void onVideoSinkReady(VideoSink sink) {
             if (!attemptedConnection) {
                 LimeLog.info("Surface is available, starting connection...");
                 attemptedConnection = true;
+                connecting = true;
 
-                // Der Decoder erhält die jeweils aktive Oberfläche vom Container
-                decoderRenderer.setRenderTarget(streamContainer.getSurface());
+                streamingSession.start(sink, Game.this);
+            }
+            }
 
-                // Starten Sie die NvConnection
-                conn.start(new AndroidAudioRenderer(Game.this, prefConfig.playHostAudio),
-                        decoderRenderer, Game.this);
+            @Override
+            public void onVideoSinkDestroyed(VideoSink sink) {
+                if (streamingSession != null) {
+                    streamingSession.prepareForVideoSinkDestroyed();
+                }
             }
         });
 
@@ -3453,7 +3422,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             // during the process of stopping this one.
             new Thread() {
                 public void run() {
-                    conn.stop();
+                    if (streamingSession != null) {
+                        streamingSession.stopBlocking();
+                    } else {
+                        conn.stop();
+                    }
                     if (httpConn != null && quitOnStop) {
                         try {
                             sleep(1000);
@@ -3670,6 +3643,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
                 connected = true;
                 connecting = false;
+                if (streamingSession != null) {
+                    streamingSession.markStarted();
+                }
                 updatePipAutoEnter();
 
                 // Hide the mouse cursor now after a short delay.
@@ -3846,69 +3822,27 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public void mouseMove(int deltaX, int deltaY) {
-        conn.sendMouseMove((short) deltaX, (short) deltaY);
+        hostInputMapper.mouseMove(deltaX, deltaY);
     }
 
     @Override
     public void mouseButtonEvent(int buttonId, boolean down) {
-        byte buttonIndex;
-
-        switch (buttonId)
-        {
-            case EvdevListener.BUTTON_LEFT:
-                buttonIndex = MouseButtonPacket.BUTTON_LEFT;
-                break;
-            case EvdevListener.BUTTON_MIDDLE:
-                buttonIndex = MouseButtonPacket.BUTTON_MIDDLE;
-                break;
-            case EvdevListener.BUTTON_RIGHT:
-                buttonIndex = MouseButtonPacket.BUTTON_RIGHT;
-                break;
-            case EvdevListener.BUTTON_X1:
-                buttonIndex = MouseButtonPacket.BUTTON_X1;
-                break;
-            case EvdevListener.BUTTON_X2:
-                buttonIndex = MouseButtonPacket.BUTTON_X2;
-                break;
-            default:
-                LimeLog.warning("Unhandled button: "+buttonId);
-                return;
-        }
-
-        if (down) {
-            conn.sendMouseButtonDown(buttonIndex);
-        }
-        else {
-            conn.sendMouseButtonUp(buttonIndex);
-        }
+        hostInputMapper.mouseButtonEvent(buttonId, down);
     }
 
     @Override
     public void mouseVScroll(byte amount) {
-        conn.sendMouseScroll(amount);
+        hostInputMapper.mouseVScroll(amount);
     }
 
     @Override
     public void mouseHScroll(byte amount) {
-        conn.sendMouseHScroll(amount);
+        hostInputMapper.mouseHScroll(amount);
     }
 
     @Override
     public void keyboardEvent(boolean buttonDown, short keyCode) {
-        short keyMap = keyboardTranslator.translate(keyCode, 0, -1);
-        if (keyMap != 0) {
-            // handleSpecialKeys() takes the Android keycode
-            if (handleSpecialKeys(keyCode, buttonDown)) {
-                return;
-            }
-
-            if (buttonDown) {
-                conn.sendKeyboardInput(keyMap, KeyboardPacket.KEY_DOWN, getModifierState(), (byte)0);
-            }
-            else {
-                conn.sendKeyboardInput(keyMap, KeyboardPacket.KEY_UP, getModifierState(), (byte)0);
-            }
-        }
+        hostInputMapper.keyboardEvent(buttonDown, keyCode);
     }
 
     @Override

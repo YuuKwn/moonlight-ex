@@ -46,6 +46,7 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
     private SurfaceView mSurfaceView;
     private Surface mCurrentSurface;
     private Runnable onSurfaceAvailable;
+    private Runnable onSurfaceDestroyed;
     private StreamMode renderMode = null;
     private InputCallbacks mInputCallbacks;
     private boolean commitTextEnabled = false;
@@ -208,6 +209,10 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
         }
     }
 
+    public void setOnSurfaceDestroyed(Runnable callback) {
+        this.onSurfaceDestroyed = callback;
+    }
+
     public Surface getSurface() {
         return mCurrentSurface;
     }
@@ -252,6 +257,10 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
             mCurrentSurface = null;
         } else if (mStereoRenderer != null) {
             mStereoRenderer.onSurfaceDestroyed();
+        }
+
+        if (onSurfaceDestroyed != null) {
+            onSurfaceDestroyed.run();
         }
 
         game.surfaceDestroyed(holder);

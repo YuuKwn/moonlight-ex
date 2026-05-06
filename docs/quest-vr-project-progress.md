@@ -104,6 +104,29 @@ Local environment repair during verification:
 
 Milestone 1 status: local implementation/build slice complete. Remaining acceptance work requires headset hardware: sideload the `arm64-v8a` APK on Quest, pair with Sunshine/Apollo, test 1080p/60, 1080p/90, and 1440p/90 where supported, verify physical gamepad streaming input, and verify Touch controller panel usability.
 
+### 2026-05-06 - Milestone 2 Started
+
+Goal: make the stream core reusable by Android, Spatial SDK, or OpenXR frontends without changing the current Android stream behavior.
+
+Completed local implementation:
+
+- [x] Added `StreamLaunchParams` to parse and validate `Game` launch intent extras, create the launch `NvApp`, decode the server certificate, and build the optional `NvHTTP` quit-session helper.
+- [x] Added `StreamConfigurationFactory` so `Game` delegates `StreamConfiguration` construction and frame-rate selection instead of owning that setup inline.
+- [x] Added `StreamingSession` to own the active `NvConnection`, `AndroidAudioRenderer`, `MediaCodecDecoderRenderer` render-target assignment, and start/stop lifecycle state.
+- [x] Added `VideoSink` with readiness/destroy callbacks, preferred size, preferred refresh metadata, and `Surface` access.
+- [x] Added `AndroidSurfaceVideoSink` for the current `StreamContainer` surface path.
+- [x] Extended `StreamContainer` with a surface-destroy callback for sink lifecycle propagation.
+- [x] Added `HostInputMapper` and routed evdev mouse/scroll/keyboard forwarding through it.
+- [x] Updated `Game` to delegate launch parsing, config generation, session start/stop, video sink readiness, and the first input-mapper path while preserving existing activity UI, overlays, decoder setup, controller handling, and connection callbacks.
+- [x] Added unit coverage for launch params, frame-rate/config factory behavior, and streaming session state transitions.
+
+Verification:
+
+- `gradlew test` passed on 2026-05-06.
+- `gradlew assembleQuestDebug` passed on 2026-05-06.
+
+Milestone 2 status: local refactor/build slice complete. Hardware acceptance still requires confirming an actual stream on Quest and a normal Android device because this milestone intentionally preserves the existing MediaCodec/Surface path while changing ownership boundaries.
+
 ## Executive Summary
 
 This project is feasible, and the fork is a strong starting point for the streaming, host discovery, codec negotiation, input forwarding, and performance overlay layers. The main work is not the streaming core. The main work is replacing a phone/tablet/TV Android UX with a Quest-native interaction model and deciding how deeply to integrate with Horizon OS.
